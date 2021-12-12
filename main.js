@@ -3,9 +3,13 @@
 
 const WebSocket = require('ws');
 const Database = require("easy-json-database");
+const removeValue = require('remove-value');
+Array.prototype.remove = removeValue;
 
 const db_users = new Database("/root/Ares/users.json", {});
 const db_full = new Database("/root/Ares/full.json", {});
+const db_likes = new Database("/root/Ares/likes.json", {});
+const db_poops = new Database("/root/Ares/poops.json", {});
 
 const server = new WebSocket.Server({
   port: 5000
@@ -76,8 +80,10 @@ server.on('connection', function(socket) {
 
      if (db_users.has(name) === true) {
         if (password === db_users.get(name)[0]) {
-
-          var datum = ("0" + date.getDate()).slice(-2) + "/" + ("0" + (date.getMonth() + 1)).slice(-2) + "/" + date.getFullYear();
+          
+          var datum
+          if (date.getHours() === "23" || date.getHours() === 23) {datum = "00:" + date.getMinutes() + " " + ("0" + date.getDate()).slice(-2) + "/" + ("0" + (date.getMonth() + 1)).slice(-2) + "/" + date.getFullYear();}
+          else {datum = parseInt(date.getHours())+1 + ":" + date.getMinutes() + " " + ("0" + date.getDate()).slice(-2) + "/" + ("0" + (date.getMonth() + 1)).slice(-2) + "/" + date.getFullYear();}
 
          db_full.set(`${db_full.get("count")+1}`, [
             `${status}`,
@@ -131,9 +137,7 @@ server.on('connection', function(socket) {
         socket.send(`snd$${id_tweetu}$${text[1]}$${text[0]}$${text[2]}$${text[3]}$${text[4]}$${text[5]}`);
       }
     }
-    catch {
-
-    }
+    catch {}
 
    }
 
@@ -143,11 +147,82 @@ server.on('connection', function(socket) {
      var username = msg.split("$")[1];
 
      if (db_users.has(username) === true) {
-        console.log(`prf$${db_users.get(username)[1]}$${db_users.get(username)[2]}$${db_users.get(username)[3]}$${db_users.get(username)[4]}`);
-        socket.send(`prf$${db_users.get(username)[1]}$${db_users.get(username)[2]}$${db_users.get(username)[3]}$${db_users.get(username)[4]}`);
+        console.log(`prf$${username}$${db_users.get(username)[1]}$${db_users.get(username)[2]}$${db_users.get(username)[4]}$${db_users.get(username)[5]}`);
+        socket.send(`prf$${username}$${db_users.get(username)[1]}$${db_users.get(username)[2]}$${db_users.get(username)[4]}$${db_users.get(username)[5]}`);
      }
      else {console.log("err"); socket.send("err");}
    }
+
+  
+
+  if (msg.startsWith("setlike")) {
+    var username = msg.split("$")[1];
+    var password = msg.split("$")[2];
+    var id = msg.split("$")[3];
+
+    if (db_users.has(username) === true) {
+      if (password === db_users.get(username)[0]) {
+
+        console.log("db: " + db_likes.get(id));
+        if (db_likes.has(id) === false) {console.log("swag"); db_likes.set(id, [])}
+        var array = db_likes.get(id);
+        console.log("array: " + array);
+
+        if (array.includes(username)) {
+          console.log("uz jsi nedal like");  socket.send(`ans$notlike$${id}`);
+          array.remove(`${username}`);
+          db_likes.set(id, array);
+          var pole = db_full.get(id);
+          pole[3] = (parseInt(pole[3])-1).toString();
+          db_full.set(id, pole);
+        }
+        else {
+          console.log("dal jsi like");  socket.send(`ans$like$${id}`);
+          array.push(username);
+          db_likes.set(id, array);
+          var pole = db_full.get(id);
+          pole[3] = (parseInt(pole[3])+1).toString();
+          db_full.set(id, pole);
+        }
+      }
+      else { console.log("err"); socket.send("err");}
+    }
+    else { console.log("err"); socket.send("err");}
+  }
+
+
+  if (msg.startsWith("setpoop")) {
+    var username = msg.split("$")[1];
+    var password = msg.split("$")[2];
+    var id = msg.split("$")[3];
+
+    if (db_users.has(username) === true) {
+      if (password === db_users.get(username)[0]) {
+
+        if (db_poops.has(id) === false) {db_poops.set(id, [])}
+        var array = db_poops.get(id);
+
+        if (array.includes(username)) {
+          console.log("uz jsi nedal poop");  socket.send(`ans$notpoop$${id}`);
+          array.remove(`${username}`);
+          db_poops.set(id, array);
+          var pole = db_full.get(id);
+          pole[4] = (parseInt(pole[4])-1).toString();
+          db_full.set(id, pole);
+        }
+        else {
+          console.log("dal jsi poop");  socket.send(`ans$poop$${id}`);
+          array.push(username);
+          db_poops.set(id, array);
+          var pole = db_full.get(id);
+          pole[4] = (parseInt(pole[4])+1).toString();
+          db_full.set(id, pole);
+        }
+      }
+      else { console.log("err"); socket.send("err");}
+    }
+    else { console.log("err"); socket.send("err");}
+  }
 
 
   });
